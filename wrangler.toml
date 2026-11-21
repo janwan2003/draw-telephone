@@ -1,0 +1,8 @@
+name = "pb-draw-telephone"
+pages_build_output_dir = "public"
+compatibility_date = "2025-11-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pb-draw-telephone"
+database_id = "b21d096e-e94c-4fdd-9492-c78861a8d77c"

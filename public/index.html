@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Doodlechain · the drawing telephone game for your group chat</title>
+<meta name="description" content="Draw, guess and pass it on, in your group chat. One link, no app, no sign-up. Everyone plays when they have a minute, then the whole chain is revealed.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Doodlechain">
+<meta property="og:title" content="Doodlechain · drawing telephone for your group chat">
+<meta property="og:description" content="Write a phrase, a friend draws it, the next one guesses. Play during the day, laugh at the reveal. No app, no sign-up.">
+<meta property="og:image" content="https://pb-draw-telephone.pages.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://pb-draw-telephone.pages.dev/">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="google-site-verification" content="g6R95T8-VFARk0PYhc-lkqete3o5OcxzkrFJ0B-vI4E" />
+<meta name="theme-color" content="#fff8ee">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body class="home">
+<header class="top">
+  <a class="brand" href="/"><img src="/icon.svg" alt="" width="32" height="32"> Doodlechain</a>
+</header>
+<main>
+  <section class="hero">
+    <div class="hero-text">
+      <h1>The drawing telephone game for your group chat</h1>
+      <p class="lead">Someone writes “a cat doing taxes”. The next person draws it. The next guesses the drawing. Everyone plays whenever they have a minute, then the whole chain is revealed.</p>
+      <ul class="ticks">
+        <li>One link in the chat, no app, no sign-up</li>
+        <li>Turns take a minute, on your phone</li>
+        <li>Same link for a new round every day</li>
+      </ul>
+    </div>
+    <form id="createForm" class="card create" novalidate>
+      <h2>Start a game</h2>
+      <label for="gName">Game name</label>
+      <input id="gName" maxlength="50" placeholder="e.g. Smith family, Office crew" autocomplete="off" required>
+      <label for="hName">Your nickname</label>
+      <input id="hName" maxlength="24" placeholder="e.g. Anna" autocomplete="nickname" required>
+      <div class="row2">
+        <div>
+          <label for="reveal">Reveal</label>
+          <select id="reveal">
+            <option value="all">When everyone has played</option>
+            <option value="tonight">Tonight at 9 pm</option>
+            <option value="tomorrow">Tomorrow at 9 pm</option>
+            <option value="3days">In 3 days</option>
+          </select>
+        </div>
+        <div>
+          <label for="steps">Chain length</label>
+          <select id="steps">
+            <option value="4">Short · 4 steps</option>
+            <option value="6" selected>Normal · 6 steps</option>
+            <option value="8">Long · 8 steps</option>
+          </select>
+        </div>
+      </div>
+      <p class="error" id="createError" role="alert"></p>
+      <button class="btn primary big" id="createBtn" type="submit">Create game and get the link</button>
+      <p class="fine">Free. Best with 4 to 12 players. You can reveal early as the host.</p>
+    </form>
+  </section>
+
+  <section id="mine" class="mine" hidden>
+    <h2>Your games</h2>
+    <ul id="mineList" class="game-list"></ul>
+  </section>
+
+  <section class="how">
+    <h2>How it works</h2>
+    <ol class="steps3">
+      <li><span class="num">1</span><h3>Send the link</h3><p>Create a game and drop the link in your WhatsApp, iMessage, Messenger or Discord group. Friends join with a nickname.</p></li>
+      <li><span class="num">2</span><h3>Draw or guess</h3><p>Each turn you see only the step before yours: a phrase to draw, or a drawing to name. Several chains run at once, so nobody waits.</p></li>
+      <li><span class="num">3</span><h3>Watch it fall apart</h3><p>When everyone has played (or at the time you chose), the reveal plays each chain from start to finish. Save one as an image to share.</p></li>
+    </ol>
+  </section>
+
+  <section class="example" aria-label="Example chain">
+    <h2>A chain, after 4 friends</h2>
+    <div class="chain-demo">
+      <div class="demo-step text"><small>Anna wrote</small><b>a cat doing taxes</b></div>
+      <div class="demo-step"><small>Ben drew</small><canvas id="demo1" class="drawing" aria-label="Drawing of a cat at a desk"></canvas></div>
+      <div class="demo-step text"><small>Cleo guessed</small><b>a raccoon at the bank</b></div>
+      <div class="demo-step"><small>Dan drew</small><canvas id="demo2" class="drawing" aria-label="Drawing of a raccoon with a bag of money"></canvas></div>
+    </div>
+  </section>
+
+  <section class="faq">
+    <h2>Questions</h2>
+    <details><summary>Does everyone need to be online at the same time?</summary><p>No. That is the point. Each person plays whenever they open the link: on the bus, at lunch, before bed. The chains move on as people play.</p></details>
+    <details><summary>What if someone never plays?</summary><p>Pick a reveal time when you create the game, or reveal early as the host. The game never waits forever.</p></details>
+    <details><summary>Do I need an account or an app?</summary><p>No. Open the link, type a nickname, play. Your browser remembers you on that device.</p></details>
+    <details><summary>Can we play again tomorrow?</summary><p>Yes. After the reveal anyone can start the next round on the same link, so the group keeps one link in the chat.</p></details>
+    <details><summary>Who can see the drawings?</summary><p>Only people with your game’s link. There is no public feed. The host can remove any step after the reveal or delete the whole game. Inactive games are deleted after 90 days.</p></details>
+  </section>
+</main>
+<footer class="foot">
+  <p><b>About:</b> Doodlechain is a free drawing telephone game for group chats.</p>
+  <p><a href="/privacy.html">Privacy</a> · <a href="https://github.com/janwan2003/draw-telephone/issues">Support</a></p>
+</footer>
+<script src="/common.js"></script>
+<script src="/canvas.js"></script>
+<script src="/home.js"></script>
+</body>
+</html>

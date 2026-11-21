@@ -1,0 +1,29 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{margin:0;width:1200px;height:630px;background:#fff8ee;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#1d1b2e;display:flex;align-items:center;overflow:hidden}
+.l{padding:0 0 0 72px;width:560px}
+.b{display:flex;align-items:center;gap:16px;font-weight:800;font-size:40px;margin-bottom:34px}
+.b img{width:64px;height:64px;border-radius:16px}
+h1{font-size:62px;line-height:1.05;margin:0 0 22px;letter-spacing:-.02em}
+p{font-size:28px;color:#4a4660;margin:0}
+.r{display:grid;grid-template-columns:250px 250px;gap:18px;margin-left:30px}
+.c{background:#fff;border:2px solid #ece3d4;border-radius:22px;padding:14px;box-shadow:0 8px 30px rgba(29,27,46,.08)}
+.c small{display:block;color:#6b6680;font-weight:700;font-size:18px;margin-bottom:6px}
+.c b{font-size:26px;line-height:1.2;display:block}
+canvas{width:220px;height:220px;display:block;border-radius:12px}
+.t{display:flex;flex-direction:column;justify-content:center;height:250px}
+</style></head><body>
+<div class="l"><div class="b"><img src="../public/icon.svg">Doodlechain</div>
+<h1>Draw, guess, pass it on.</h1><p>The drawing telephone game for your group chat. One link, no app.</p></div>
+<div class="r">
+<div class="c t"><small>Anna wrote</small><b>a cat doing taxes</b></div>
+<div class="c"><small>Ben drew</small><canvas id="a"></canvas></div>
+<div class="c t"><small>Cleo guessed</small><b>a raccoon at the bank</b></div>
+<div class="c"><small>Dan drew</small><canvas id="b"></canvas></div>
+</div>
+<script src="../public/canvas.js"></script>
+<script>
+const circle=(cx,cy,r,c,w,n=18)=>{const s=[c,w];for(let i=0;i<=n;i++){const a=i/n*Math.PI*2;s.push(Math.round(cx+Math.cos(a)*r),Math.round(cy+Math.sin(a)*r))}return s};
+const cat={s:[[8,2,120,820,880,820],[8,1,180,820,180,960],[8,1,820,820,820,960],circle(420,420,170,0,1),[0,1,290,320,300,170,400,260],[0,1,450,255,560,170,560,320],[0,0,360,410,380,410],[0,0,460,410,480,410],[7,1,410,470,430,470],[0,0,300,470,200,450],[0,0,540,470,650,450],[0,1,300,590,260,800],[0,1,540,590,580,800],[5,1,640,560,860,560,860,800,640,800,640,560],[0,0,680,620,820,620],[0,0,680,680,800,680],[0,0,680,740,780,740],[1,1,560,700,640,650]]};
+const rac={s:[circle(380,400,180,0,1),[0,2,250,390,510,390],[9,0,330,390,340,390],[9,0,420,390,430,390],[0,1,250,280,240,160,330,240],[0,1,430,240,520,160,510,280],[0,1,360,480,400,480],[0,1,300,580,260,860],[0,1,460,580,500,860],circle(700,700,150,4,1),[4,1,640,560,700,520,760,560],[4,2,700,640,660,680,740,720,700,760],[4,1,700,610,700,790],[0,1,160,700,100,640,160,600,100,540]]};
+for(const[id,d]of[['a',cat],['b',rac]]){const c=document.getElementById(id);c.width=c.height=440;renderDrawing(c.getContext('2d'),d,440)}
+</script></body></html>

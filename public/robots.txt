@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /g/
+Disallow: /api/
+Sitemap: https://pb-draw-telephone.pages.dev/sitemap.xml
