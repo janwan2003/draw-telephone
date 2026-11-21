@@ -117,7 +117,7 @@ Verified 2026-11-21:
 - `node --test tests/unit/*.test.js`: 6/6 pass (whole-round simulation for 3–20 players × chain length 4/6/8 × 20
   seeds: every round completes, chains alternate text/draw, nobody plays a chain twice; locks; skip; validation).
 - `tests/e2e/run.mjs` in real Chromium, 5 separate browser contexts (390 px phone, 360 px phone, 1280 px desktop),
-  **passes on local `wrangler pages dev` and on production** (deploy 59992387): create with validation, OG text
+  **passes on local `wrangler pages dev` and on production** (deploys 59992387 and the final 7e88cc91): create with validation, OG text
   before/during/after, joins with a duplicate nickname, start phrases + dice, turn API exposes only the previous step and
   state leaks no phrases, 12 turns until auto-reveal, 4 chains × 4 steps by 4 different people, step-by-step reveal,
   share PNG download (>20 KB), host removes a step, late joiner sees the reveal, non-host starts round 2, past round
