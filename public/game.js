@@ -79,7 +79,24 @@
     }).join('')}</ul></section>`;
   }
 
+  // Re-rendering (poll every 20 s, coming back to the tab) must not wipe what the player is typing.
+  const KEEP = ['startText', 'joinName', 'nrReveal', 'nrSteps'];
   function render() {
+    const kept = {};
+    for (const k of KEEP) { const el = document.getElementById(k); if (el) kept[k] = el.value; }
+    const focused = document.activeElement && KEEP.includes(document.activeElement.id) ? document.activeElement.id : null;
+    renderView();
+    for (const k of KEEP) {
+      const el = document.getElementById(k);
+      if (el && kept[k] !== undefined && kept[k] !== '') el.value = kept[k];
+    }
+    if (focused) {
+      const el = document.getElementById(focused);
+      if (el) { el.focus({ preventScroll: true }); if (el.setSelectionRange && el.type !== 'select-one') try { el.setSelectionRange(el.value.length, el.value.length); } catch {} }
+    }
+  }
+
+  function renderView() {
     clearTimeout(pollTimer);
     if (pad) { pad.destroy(); pad = null; }
     if (!S.me) return renderJoin();
@@ -110,7 +127,7 @@
         main = `<section class="card turn-card done" id="doneCard">
           <h2>You're all caught up</h2>
           <p>${my.waiting ? `${my.waiting} more ${my.waiting === 1 ? 'chain is' : 'chains are'} being played right now and will come to you. ` : ''}${waiting.length ? `Waiting for ${waiting.slice(0, 6).join(', ')}${waiting.length > 6 ? ` and ${waiting.length - 6} more` : ''}.` : 'Everyone has played.'} We'll show the reveal here${r.revealAt ? ` ${esc(fmtReveal(r.revealAt))} at the latest` : ''}.</p>
-          <p class="fine">Nudge the group: the link preview shows who has played.</p>
+          <p class="fine">Nudge the group: the link preview in your chat shows how many have played.</p>
         </section>`;
       }
       if (S.me.isHost && r.chains > 0) {
@@ -359,7 +376,12 @@
     }));
     const sa = app.querySelector('[data-act=showall]');
     if (sa) sa.addEventListener('click', () => { showAll = !showAll; render(); });
-    app.querySelectorAll('[data-save]').forEach((b) => b.addEventListener('click', () => saveChain(chains.find((x) => x.id === b.dataset.save))));
+    const roundN = pastReveal ? pastReveal.round.n : S.round.n;
+    app.querySelectorAll('[data-save]').forEach((b) => b.addEventListener('click', async () => {
+      b.disabled = true;
+      try { await saveChain(chains.find((x) => x.id === b.dataset.save), roundN); } catch { toast('Could not make the image. Try again.'); }
+      b.disabled = false;
+    }));
     app.querySelectorAll('[data-rm]').forEach((b) => b.addEventListener('click', async () => {
       if (!confirm('Remove this step for everyone?')) return;
       const [chainId, idx] = b.dataset.rm.split(':');
@@ -381,9 +403,9 @@
       <p>Start round ${S.round.n + 1} on the same link. Everyone in the group can play right away.</p>
       <div class="row2">
         <div><label for="nrReveal">Reveal</label><select id="nrReveal">
-          <option value="all">When everyone has played</option><option value="tonight">Tonight at 9 pm</option><option value="tomorrow">Tomorrow at 9 pm</option><option value="3days">In 3 days</option></select></div>
+          <option value="all">When all have played</option><option value="tonight">Tonight, 9 pm</option><option value="tomorrow">Tomorrow, 9 pm</option><option value="3days">In 3 days</option></select></div>
         <div><label for="nrSteps">Chain length</label><select id="nrSteps">
-          <option value="4">Short · 4 steps</option><option value="6" ${S.round.maxSteps === 6 ? 'selected' : ''}>Normal · 6 steps</option><option value="8" ${S.round.maxSteps === 8 ? 'selected' : ''}>Long · 8 steps</option></select></div>
+          <option value="4">4 steps (short)</option><option value="6" ${S.round.maxSteps === 6 ? 'selected' : ''}>6 steps</option><option value="8" ${S.round.maxSteps === 8 ? 'selected' : ''}>8 steps (long)</option></select></div>
       </div>
       <button class="btn primary big" data-act="nextround">Start round ${S.round.n + 1}</button>
     </section>`;
@@ -407,7 +429,9 @@
   }
 
   // ---------- share image ----------
-  async function saveChain(c) {
+  const loadImg = (src) => new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
+
+  async function saveChain(c, roundN) {
     const W = 1080, pad = 60, art = W - pad * 2;
     const lines = (ctx, text, max) => {
       const words = text.split(' '); const out = []; let cur = '';
@@ -417,8 +441,10 @@
     const cv = document.createElement('canvas');
     const ctx = cv.getContext('2d');
     const font = (wt, px) => `${wt} ${px}px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
+    const icon = await loadImg('/icon.svg');
+    const ending = describeEnd(c, true);
     // measure
-    let h = 170;
+    let h = 200;
     const blocks = [];
     ctx.font = font(700, 52);
     for (const s of c.steps) {
@@ -427,38 +453,74 @@
       else blocks.push({ s, h: 50 + art + 30 });
     }
     for (const b of blocks) h += b.h + 24;
-    h += 110;
+    ctx.font = font(700, 40);
+    const endLines = ending === 'The end' ? [] : lines(ctx, ending, art - 60);
+    if (endLines.length) h += 40 + endLines.length * 52 + 40 + 24;
+    h += 120;
     cv.width = W; cv.height = h;
     ctx.fillStyle = '#fff8ee'; ctx.fillRect(0, 0, W, h);
-    ctx.fillStyle = '#1d1b2e'; ctx.font = font(800, 56); ctx.fillText('Doodlechain', pad, 100);
-    ctx.fillStyle = '#6b6680'; ctx.font = font(500, 32); ctx.fillText(`Started by ${c.starter}`, pad, 148);
-    let y = 190;
+    if (icon) ctx.drawImage(icon, pad, 44, 76, 76);
+    const tx = icon ? pad + 96 : pad;
+    ctx.fillStyle = '#1d1b2e'; ctx.font = font(800, 50); ctx.fillText('Doodlechain', tx, 94);
+    ctx.fillStyle = '#6b6680'; ctx.font = font(500, 30);
+    const sub = `${S.group.name} · Round ${roundN} · started by ${c.starter}`;
+    ctx.fillText(sub.length > 58 ? sub.slice(0, 57) + '…' : sub, tx, 134);
+    let y = 200;
     for (const b of blocks) {
       ctx.fillStyle = '#6b6680'; ctx.font = font(600, 30);
       ctx.fillText(b.s.kind === 'text' ? (b.s.idx === 0 ? `${b.s.by} wrote` : `${b.s.by} guessed`) : `${b.s.by} drew`, pad, y + 34);
       if (b.s.kind === 'text') {
         ctx.fillStyle = '#ffffff'; roundRect(ctx, pad, y + 52, art, b.h - 52, 28); ctx.fill();
+        ctx.strokeStyle = '#ece3d4'; ctx.lineWidth = 3; ctx.stroke();
         ctx.fillStyle = '#1d1b2e'; ctx.font = font(700, 52);
         b.ls.forEach((l, i) => ctx.fillText(l, pad + 30, y + 52 + 70 + i * 62));
       } else {
         ctx.save(); roundRect(ctx, pad, y + 50, art, art, 28); ctx.clip();
         renderDrawing(ctx, b.s.body, art, pad, y + 50); ctx.restore();
-        ctx.strokeStyle = '#e8e0d2'; ctx.lineWidth = 3; roundRect(ctx, pad, y + 50, art, art, 28); ctx.stroke();
+        ctx.strokeStyle = '#ece3d4'; ctx.lineWidth = 3; roundRect(ctx, pad, y + 50, art, art, 28); ctx.stroke();
       }
       y += b.h + 24;
     }
-    ctx.fillStyle = '#ff5a4e'; ctx.font = font(700, 34);
-    ctx.fillText('Play in your group chat: ' + location.host, pad, h - 50);
+    if (endLines.length) {
+      const bh = 40 + endLines.length * 52 + 40;
+      ctx.fillStyle = '#ffd23f'; roundRect(ctx, pad, y, art, bh, 28); ctx.fill();
+      ctx.fillStyle = '#1d1b2e'; ctx.font = font(700, 40);
+      endLines.forEach((l, i) => ctx.fillText(l, pad + 30, y + 40 + 38 + i * 52));
+      y += bh + 24;
+    }
+    ctx.fillStyle = '#e2443a'; ctx.font = font(700, 34);
+    ctx.fillText('Play it in your group chat: ' + location.host, pad, h - 56);
     const blob = await new Promise((res) => cv.toBlob(res, 'image/png'));
+    if (!blob) throw new Error('no image');
     const file = new File([blob], 'doodlechain.png', { type: 'image/png' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try { await navigator.share({ files: [file], text: describeEnd(c, true) }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+      try { await navigator.share({ files: [file], text: ending === 'The end' ? 'Doodlechain' : ending }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
     }
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = 'doodlechain.png';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-    toast('Image saved.');
+    showImage(blob);
+  }
+
+  // Fallback when the browser cannot share files (desktop, most in-app browsers): show the image
+  // with a download button; on phones a long press on the image saves it.
+  function showImage(blob) {
+    const url = URL.createObjectURL(blob);
+    const touch = matchMedia('(pointer: coarse)').matches;
+    const el = document.createElement('div');
+    el.className = 'sheet';
+    el.innerHTML = `<div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <h2 id="sheetTitle">Your chain as an image</h2>
+      <img src="${url}" alt="The whole chain as one image">
+      <p class="fine">${touch ? 'If the download does nothing, press and hold the image and choose Save or Share.' : 'Download it, then send it to your group or post it anywhere.'}</p>
+      <div class="sheet-actions"><button type="button" class="btn" data-close>Close</button><a class="btn primary" href="${url}" download="doodlechain.png" data-download>Download image</a></div>
+    </div>`;
+    const prevFocus = document.activeElement;
+    const close = () => { el.remove(); document.removeEventListener('keydown', onKey); document.body.classList.remove('noscroll'); setTimeout(() => URL.revokeObjectURL(url), 60000); if (prevFocus && prevFocus.focus) prevFocus.focus(); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    el.addEventListener('click', (e) => { if (e.target === el || e.target.closest('[data-close]')) close(); });
+    el.querySelector('[data-download]').addEventListener('click', () => setTimeout(() => toast('Image saved.'), 300));
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(el);
+    document.body.classList.add('noscroll');
+    el.querySelector('[data-download]').focus();
   }
 
   function roundRect(ctx, x, y, w, h, r) {

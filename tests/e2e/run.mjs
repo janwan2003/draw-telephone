@@ -38,9 +38,14 @@ async function person(label, opts) {
   });
   page.on('pageerror', (e) => errors.push(`${label}: ${e.message}`));
   page.on('dialog', (d) => d.accept());
-  return { label, ctx, page };
+  return { label, ctx, page, touch: !!opts.hasTouch };
 }
-const shot = (p, name, full = true) => p.screenshot({ path: path.join(SHOTS, name + '.png'), fullPage: full });
+// Every screenshot also checks that nothing sticks out sideways (no horizontal scrolling on phones).
+const shot = async (p, name, full = true) => {
+  const over = await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  if (over > 1) errors.push(`${name}: page is ${over}px wider than the screen`);
+  return p.screenshot({ path: path.join(SHOTS, name + '.png'), fullPage: full });
+};
 const shots = new Set();
 const once = async (p, name, full) => { if (!shots.has(name)) { shots.add(name); await shot(p, name, full); } };
 
@@ -62,6 +67,34 @@ async function scribble(page, seed) {
   await page.mouse.up();
 }
 
+// Draw with real touch events (finger), as on a phone. Checks the page does not scroll while drawing.
+async function touchScribble(page) {
+  const cdp = await page.context().newCDPSession(page);
+  const box = await page.locator('canvas.pad').boundingBox();
+  const y0 = await page.evaluate(() => window.scrollY);
+  const at = (fx, fy) => ({ x: box.x + box.width * fx, y: box.y + box.height * fy });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [at(0.2, 0.3)] });
+  for (let i = 1; i <= 20; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [at(0.2 + i * 0.03, 0.3 + i * 0.02)] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  // Tap a colour straight after a fast stroke, as a quick player would.
+  await page.tap('.sw[data-c="5"]');
+  assert.equal(await page.getAttribute('.sw[data-c="5"]', 'aria-pressed'), 'true', 'tapping a colour selects it');
+  // a vertical swipe on the pad must draw, not scroll the page
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [at(0.5, 0.2)] });
+  for (let i = 1; i <= 15; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [at(0.5, 0.2 + i * 0.04)] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  // Undo straight after a stroke removes exactly that stroke; then draw it again.
+  const before = await page.evaluate(() => document.querySelector('canvas.pad').toDataURL().length);
+  await page.tap('[data-act=undo]');
+  assert.notEqual(await page.evaluate(() => document.querySelector('canvas.pad').toDataURL().length), before, 'quick Undo after a stroke works');
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [at(0.5, 0.2)] });
+  for (let i = 1; i <= 15; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [at(0.5, 0.2 + i * 0.04)] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await cdp.detach();
+  assert.equal(await page.evaluate(() => window.scrollY), y0, 'drawing with a finger does not scroll the page');
+  assert.ok(!(await page.isDisabled('[data-act=submit]')), 'touch strokes count as a drawing');
+}
+
 // Play every available turn for this person; returns the number of turns played.
 async function playAll(p, n) {
   let played = 0;
@@ -75,7 +108,8 @@ async function playAll(p, n) {
       const phrase = await p.page.textContent('#phrase');
       assert.ok(phrase.length >= 2, 'phrase shown');
       assert.ok(await p.page.isDisabled('[data-act=submit]'), 'submit disabled until something is drawn');
-      await scribble(p.page, n * 7 + played);
+      if (p.touch) await touchScribble(p.page);
+      else await scribble(p.page, n * 7 + played);
       await once(p.page, `phone-draw-${p.label}`, false);
       await p.page.click('[data-act=submit]');
     } else {
@@ -161,7 +195,14 @@ try {
       assert.match(await p.page.textContent('#startError'), /few words/);
       await p.page.fill('#startText', `${p.label}'s phrase: a cat doing taxes`);
     }
-    if (p === anna) await shot(anna.page, 'phone-start');
+    if (p === anna) {
+      await shot(anna.page, 'phone-start');
+      // A refresh (poll or coming back to the tab) must not wipe a half-typed phrase.
+      await anna.page.click('#startText');
+      await anna.page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+      await anna.page.waitForTimeout(800);
+      assert.match(await anna.page.inputValue('#startText'), /Anna's phrase/, 'typed phrase survives a refresh');
+    }
     await p.page.click('#startForm button[type=submit]');
     await p.page.waitForSelector('#turnDraw, #readyCard, #doneCard', { timeout: 15000 });
   }
@@ -228,7 +269,13 @@ try {
   await dan.page.click('[data-act=showall]');
   await dan.page.waitForTimeout(300);
   await shot(dan.page, 'desktop-reveal');
-  const [dl] = await Promise.all([dan.page.waitForEvent('download'), dan.page.locator('[data-save]').first().click()]);
+  await dan.page.locator('[data-save]').first().click();
+  await dan.page.waitForSelector('.sheet img');
+  await dan.page.waitForFunction(() => document.querySelector('.sheet img').naturalWidth === 1080);
+  await shot(dan.page, 'desktop-save-sheet', false);
+  const [dl] = await Promise.all([dan.page.waitForEvent('download'), dan.page.click('[data-download]')]);
+  await dan.page.keyboard.press('Escape');
+  assert.equal(await dan.page.locator('.sheet').count(), 0, 'Escape closes the image sheet');
   const file = path.join(SHOTS, 'share-chain.png');
   await dl.saveAs(file);
   assert.ok(fs.statSync(file).size > 20000, 'share image has content');
@@ -281,8 +328,19 @@ try {
   assert.equal(gone.status, 404);
 
   // Privacy page
-  await desk.page.goto(BASE + '/privacy.html');
+  await desk.page.goto(BASE + '/privacy');
   assert.match(await desk.page.textContent('h1'), /Privacy/);
+  const before = errors.length;
+  const nf = await desk.page.goto(BASE + '/no-such-page');
+  assert.equal(nf.status(), 404, 'unknown pages return 404');
+  assert.match(await desk.page.textContent('h1'), /lost/);
+  // A deleted or mistyped game link explains itself.
+  await desk.page.goto(url);
+  await desk.page.waitForSelector('text=Game not found');
+  await shot(desk.page, 'desktop-game-gone', false);
+  // Only the two deliberate 404s above (page + game API) may log errors here.
+  const extra = errors.splice(before);
+  assert.ok(extra.length <= 2 && extra.every((e) => /status of 404/.test(e)), 'only expected 404s: ' + extra.join(' | '));
 
   assert.deepEqual(errors, [], 'no console errors');
   console.log('E2E PASS', BASE);

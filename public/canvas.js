@@ -86,9 +86,32 @@ function drawingCanvas(drawing, { animate = false, label = 'Drawing' } = {}) {
     };
     requestAnimationFrame(tick);
   });
-  let rt;
-  window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => paint(), 150); });
+  c._repaint = () => paint();
+  liveCanvases.add(c);
   return c;
+}
+
+// One resize handler for every drawing on the page; drawings that left the page are forgotten.
+const liveCanvases = new Set();
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    for (const c of liveCanvases) { if (c.isConnected) c._repaint(); else liveCanvases.delete(c); }
+  }, 150);
+});
+
+// Tool buttons act on finger lift, not on click: Chrome drops the click of a tap that lands right
+// after a fast stroke (it treats it as stopping a fling), so a quick Undo or colour change was lost.
+// Mouse and keyboard still use click; a click right after a handled touch is ignored.
+function onTap(el, fn) {
+  let touchedAt = 0;
+  el.addEventListener('pointerup', (e) => {
+    if (e.pointerType === 'mouse') return;
+    touchedAt = Date.now();
+    fn();
+  });
+  el.addEventListener('click', () => { if (Date.now() - touchedAt > 700) fn(); });
 }
 
 class DrawPad {
@@ -110,10 +133,10 @@ class DrawPad {
       </div>`;
     this.canvas = root.querySelector('canvas');
     this.ctx = this.canvas.getContext('2d');
-    root.querySelectorAll('.sw').forEach((b) => b.addEventListener('click', () => { this.color = +b.dataset.c; this.sync(); }));
-    root.querySelectorAll('.sz').forEach((b) => b.addEventListener('click', () => { this.size = +b.dataset.s; this.sync(); }));
-    root.querySelector('[data-act=undo]').addEventListener('click', () => { this.strokes.pop(); this.redraw(); this.onchange(); });
-    root.querySelector('[data-act=clear]').addEventListener('click', () => {
+    root.querySelectorAll('.sw').forEach((b) => onTap(b, () => { this.color = +b.dataset.c; this.sync(); }));
+    root.querySelectorAll('.sz').forEach((b) => onTap(b, () => { this.size = +b.dataset.s; this.sync(); }));
+    onTap(root.querySelector('[data-act=undo]'), () => { this.strokes.pop(); this.redraw(); this.onchange(); });
+    onTap(root.querySelector('[data-act=clear]'), () => {
       if (!this.strokes.length || confirm('Clear your whole drawing?')) { this.strokes = []; this.redraw(); this.onchange(); }
     });
     this.bind();

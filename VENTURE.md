@@ -1,10 +1,10 @@
 ---
 slug: draw-telephone
 stage: launched
-priority: 5
+priority: 4
 url: https://pb-draw-telephone.pages.dev
 repo: https://github.com/janwan2003/draw-telephone
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # draw-telephone
@@ -127,25 +127,43 @@ Verified 2026-11-21:
   empty host card, cluttered remove links.
 - Rate limit checked locally: creates 201 until 20/h, then 429.
 
+Quality pass 2026-11-22 (deploy 76b5b7c1): fixed (1) the 20 s poll / returning to the tab re-rendered the page and
+wiped a half-typed starting phrase; (2) a tap on a colour, size, Undo or Clear right after a fast finger stroke was
+dropped (Chrome swallows that click), now acted on at finger lift; (3) "Save as image" only triggered a blob download,
+which in-app browsers ignore: now a preview sheet with a Download button and a press-and-hold hint (the native share sheet
+is still used where the browser can share files); (4) each drawing leaked a window resize listener; (5) unknown URLs
+returned the landing page with 200, now a real 404 page; (6) desktop selects were truncated ("When everyone has p").
+Polish: share image has the icon, game name, round and a yellow "X became Y" ending; reveal drawings capped at 420 px on
+desktop; `touch-action: manipulation` on buttons; links go to /privacy (no 308 hop).
+E2E now also covers: drawing with real touch events (CDP touchStart/Move/End, not mouse) on the 390 px and 360 px phones,
+the page not scrolling during a vertical finger stroke, quick colour tap and Undo after a stroke, typed phrase surviving
+a refresh, the image sheet + download + Escape, no horizontal overflow on every screenshot, /no-such-page → 404, deleted
+game → "Game not found". The quick-tap and typed-phrase checks were confirmed to fail on the previous code.
+Passes on local `wrangler pages dev` and on production. WebKit (iOS engine) could not be run here: Playwright's WebKit
+build needs system libraries that are not installed (no sudo), so iOS Safari remains untested.
+
 Not covered yet: real iOS Safari / Android Chrome, and the WhatsApp / Instagram / iMessage in-app browsers (drawing
 feel, share sheet with files, link preview rendering): asked in the inbox.
 
 ## Metrics
 
 - 2026-11-21 (D1 `pb-draw-telephone`, after deleting test data): 0 games, 0 players. Launched today; no promotion yet.
+- 2026-11-22 14:53 UTC (D1 `pb-draw-telephone`, `wrangler d1 execute --remote` COUNT, after the e2e deleted its game): 0 groups,
+  0 members, 0 rounds, 0 chains, 0 steps. No real users yet.
 
 ## Next steps
 
 1. Real-device check (operator, inbox): draw a turn on iPhone and Android inside WhatsApp; paste a game link in a chat
-   and check the preview text. Fix whatever it finds first.
-2. Dynamic OG image per game (e.g. "3 of 5 drew" + the latest revealed drawing for revealed rounds), rendered in the
+   and check the preview text. Fix whatever it finds first. The quality bar is otherwise met in Chromium; the remaining
+   unknown is iOS Safari, which this machine cannot run.
+2. Zero real games so far: write launch texts in `store/launch-posts.md` (AlternativeTo listing as an alternative to
+   Gartic Phone, Product Hunt, one honest Reddit post where self-promotion is allowed) for the operator to post.
+3. Dynamic OG image per game (e.g. "3 of 5 drew" + the latest revealed drawing for revealed rounds), rendered in the
    Function from stroke data (SVG → PNG, or serve an SVG-based card). This is the strongest pull for stragglers.
-3. Animated share (GIF/WebM of the chain replay) next to the PNG strip; a "send this chain to the group" button.
-4. Seasonal prompt packs (December/holiday pack now), and a "prompt of the day" option where every chain starts from
+4. Animated share (GIF/WebM of the chain replay) next to the PNG strip; a "send this chain to the group" button.
+5. Seasonal prompt packs (December/holiday pack now), and a "prompt of the day" option where every chain starts from
    the host's or a daily prompt.
-5. Turn reminders without accounts: after your turn, offer "remind me at 8 pm" via a calendar file (.ics), no push.
-6. Launch posts from the operator's accounts (only if they agree): r/WhatsApp-style communities are spam-sensitive,
-   so prefer Product Hunt / AlternativeTo listings next to Gartic Phone.
+6. Turn reminders without accounts: after your turn, offer "remind me at 8 pm" via a calendar file (.ics), no push.
 
 ## Monetization plan
 
@@ -161,3 +179,11 @@ the reveal or group size.
   no-install web link holds). Built and launched Doodlechain on Cloudflare (pb-draw-telephone): game rules + API + D1,
   drawing pad, reveal + share image, rounds, OG preview, privacy, GitHub Pages, Search Console. Verified: unit 6/6, e2e
   pass locally and on production (5 Chromium contexts, phone + desktop, zero console errors), screenshots by eye.
+- 2026-11-21 review: lowered p5→p4. live URL 200 with 0 console errors in headless Chromium at 390 px, Search Console 0 impressions 2026-11-01→11-21, prod D1 0 rows in every table (Cloudflare D1 API, 19:20 UTC). Under 21 days live, so no traction verdict. Not seasonal; p5 is now reserved for ventures whose window closes within weeks (Secret Santa, potluck, party games, advent).
+- 2026-11-22 review: kept p4. URL 200, 0 console errors (headless Chromium, 390 px, 2026-11-22 ~03:40 UTC); Search Console 0 impressions 11-01→11-22; prod D1 0 rows in every data table (Cloudflare D1 API, read-only COUNT). Under 21 days live, so no traction verdict.
+- 2026-11-22 builder (quality): fixed 6 bugs (typed phrase wiped by poll, quick taps after a stroke dropped, image save
+  failing in in-app browsers, resize listener leak, soft-404, truncated selects) + share-image and desktop polish. Verified:
+  unit 6/6; e2e PASS locally and on production deploy 76b5b7c1 (5 Chromium contexts, touch drawing via CDP, 0 console
+  errors besides 2 deliberate 404s); 2 new checks fail on the old code; screenshots of landing, draw, guess, done, reveal,
+  image sheet, 404 checked by eye. WebKit not runnable (missing system libs).
+
